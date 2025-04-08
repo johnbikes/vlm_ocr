@@ -5,11 +5,6 @@ import os
 
 from utils import load_dotenv, get_pdf_images
 
-"""
-# TODOs
-1. load in docs and prompt for extraction etc.
-"""
-
 
 def main():
     # necessary prior to importing a hf package
