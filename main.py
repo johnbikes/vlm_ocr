@@ -3,7 +3,7 @@ import os
 
 # ...
 
-from utils import load_dotenv
+from utils import load_dotenv, get_pdf_images
 
 """
 # TODOs
@@ -77,6 +77,54 @@ def main():
         generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )
     print(output_text)
+
+    # Now actually reading the pdfs ...
+    pdf_images_dict = get_pdf_images(filter=os.getenv("PDF_DIR_FILTER"))
+
+    print(f"{len(pdf_images_dict) = }")
+
+    for path_name, pdf_images in pdf_images_dict.items():
+
+        for im_i, image in enumerate(pdf_images):
+
+            # TODO: should batch instead of one image at a time
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "image": image
+                        },
+                        {"type": "text", "text": "Extract all text from the image"}, # TODO: tmp - need a better prompt - may want to format with markdown
+                    ],
+                }
+            ]
+
+            # Preparation for inference
+            text = processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            image_inputs, video_inputs = process_vision_info(messages)
+            inputs = processor(
+                text=[text],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt",
+            )
+            inputs = inputs.to("cuda")
+
+            # Inference: Generation of the output
+            generated_ids = model.generate(**inputs, max_new_tokens=128)
+            generated_ids_trimmed = [
+                out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+            output_text = processor.batch_decode(
+                generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            )
+            print(f"{path_name}_{im_i}")
+            print(output_text)
 
 if __name__ == "__main__":
     main()
